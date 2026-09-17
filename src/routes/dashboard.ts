@@ -234,11 +234,14 @@ router.get('/', async (req: Request, res: Response) => {
                 viewAsRole: viewAsRole || null,
             });
         } else if (effectiveRole === 'admin') {
-            // Fetch children separately since /api/dashboard doesn't return them
+            // Fetch children separately since /api/dashboard doesn't return them.
+            // Use /api/children (unpaginated, admins see all) instead of the
+            // paginated /api/admin/children endpoint — that one defaults to
+            // 25 per page (capped at 100), which under-counted players here.
             let children: unknown[] = [];
             try {
                 const childrenRes = await apiRequest<unknown[]>(
-                    '/api/admin/children',
+                    '/api/children',
                     { token }
                 );
                 const childrenPayload = childrenRes.data;

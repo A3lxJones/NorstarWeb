@@ -308,6 +308,114 @@ router.patch(
 );
 
 /**
+ * PATCH /api/teams/registrations/:id/reassign
+ * Move a child from their current team to a different team (coach/admin only).
+ * Coaches may only move players out of / into teams they coach.
+ * Body: { team_id: string } — the destination team.
+ */
+router.patch(
+    "/registrations/:id/reassign",
+    authorize("admin", "coach"),
+    async (req: Request, res: Response): Promise<void> => {
+        if (!isValidUUID(req.params.id) || !isValidUUID(req.body.team_id)) {
+            res.status(400).json({ success: false, error: "Invalid registration or team ID" } as ApiResponse);
+            return;
+        }
+
+        const targetTeamId = req.body.team_id as string;
+
+        // Fetch the registration being moved, including its current team's coach
+        const { data: registration, error: regError } = await supabaseAdmin
+            .from("team_registrations")
+            .select("id, team_id, child_id, team:teams!inner(coach_id)")
+            .eq("id", req.params.id)
+            .single();
+
+        if (regError || !registration) {
+            res.status(404).json({ success: false, error: "Registration not found" } as ApiResponse);
+            return;
+        }
+
+        if (registration.team_id === targetTeamId) {
+            res.status(400).json({ success: false, error: "Child is already on that team" } as ApiResponse);
+            return;
+        }
+
+        // Fetch the destination team so we can check coach ownership
+        const { data: targetTeam, error: targetTeamError } = await supabaseAdmin
+            .from("teams")
+            .select("id, coach_id")
+            .eq("id", targetTeamId)
+            .single();
+
+        if (targetTeamError || !targetTeam) {
+            res.status(404).json({ success: false, error: "Destination team not found" } as ApiResponse);
+            return;
+        }
+
+        // Coaches can only move players between teams they coach
+        if (req.userRole === "coach") {
+            const currentTeamCoachId = (registration.team as unknown as { coach_id: string | null }).coach_id;
+            if (currentTeamCoachId !== req.userId! || targetTeam.coach_id !== req.userId!) {
+                res.status(403).json({
+                    success: false,
+                    error: "You can only move players between teams you coach",
+                } as ApiResponse);
+                return;
+            }
+        }
+
+        // If the child already has a registration for the destination team,
+        // reuse it (approve it) and drop the old one; otherwise repoint this row.
+        const { data: existingTarget } = await supabaseAdmin
+            .from("team_registrations")
+            .select("id, status")
+            .eq("team_id", targetTeamId)
+            .eq("child_id", registration.child_id)
+            .maybeSingle();
+
+        if (existingTarget) {
+            if (existingTarget.status === "approved") {
+                res.status(409).json({
+                    success: false,
+                    error: "Child is already registered for the destination team",
+                } as ApiResponse);
+                return;
+            }
+
+            const { error: updateExistingError } = await supabaseAdmin
+                .from("team_registrations")
+                .update({ status: "approved" })
+                .eq("id", existingTarget.id);
+
+            if (updateExistingError) {
+                res.status(500).json({ success: false, error: updateExistingError.message } as ApiResponse);
+                return;
+            }
+
+            await supabaseAdmin.from("team_registrations").delete().eq("id", registration.id);
+
+            res.json({ success: true, message: "Child moved to new team" } as ApiResponse);
+            return;
+        }
+
+        const { data, error } = await supabaseAdmin
+            .from("team_registrations")
+            .update({ team_id: targetTeamId, status: "approved" })
+            .eq("id", registration.id)
+            .select()
+            .single();
+
+        if (error) {
+            res.status(500).json({ success: false, error: error.message } as ApiResponse);
+            return;
+        }
+
+        res.json({ success: true, data, message: "Child moved to new team" } as ApiResponse);
+    }
+);
+
+/**
  * PUT /api/teams/:id
  * Update team details (admin/coach only).
  * Validation:
