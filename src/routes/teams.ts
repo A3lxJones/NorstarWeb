@@ -109,14 +109,22 @@ router.get('/:id', async (req: Request, res: Response) => {
             return;
         }
 
-        // Fetch pending registrations for coach/admin
+        // Fetch pending registrations, plus other teams (for the "move player"
+        // dropdown), for coach/admin
         let pendingRegistrations: unknown[] = [];
+        let otherTeams: { id: string; name: string; age_group: string }[] = [];
         if (['admin', 'coach'].includes(role)) {
             const pendingResult = await apiRequest<unknown[]>(
                 `/api/teams/${teamId}/registrations?status=pending`,
                 { token }
             );
             pendingRegistrations = pendingResult.data || [];
+
+            const allTeamsResult = await apiRequest<{ id: string; name: string; age_group: string }[]>(
+                '/api/teams',
+                { token }
+            );
+            otherTeams = (allTeamsResult.data || []).filter((t) => t.id !== teamId);
         }
 
         // For parents, fetch their children's registration statuses
@@ -135,10 +143,13 @@ router.get('/:id', async (req: Request, res: Response) => {
             canEdit: ['admin', 'coach'].includes(role),
             isParent: role === 'parent',
             pendingRegistrations,
+            otherTeams,
             myRegistrations,
             success: req.query.success === 'approved' ? 'Registration approved successfully.'
                 : req.query.success === 'rejected' ? 'Registration rejected.'
-                    : null,
+                    : req.query.success === 'moved' ? 'Player moved to the new team.'
+                        : null,
+            error: req.query.error === 'move-failed' ? 'Failed to move player. Please try again.' : null,
         });
     } catch (error) {
         console.error('Team detail error:', error);
@@ -319,6 +330,36 @@ router.post(
         }
 
         res.redirect(`/dashboard/teams/${teamId}?success=rejected`);
+    }
+);
+
+// ─── POST /dashboard/teams/:id/registrations/:regId/reassign — move player ───
+
+router.post(
+    '/:id/registrations/:regId/reassign',
+    requireRole('admin', 'coach'),
+    async (req: Request, res: Response) => {
+        const token = req.session.accessToken!;
+        const { id: teamId, regId } = req.params;
+        const { team_id } = req.body;
+
+        if (!team_id) {
+            res.redirect(`/dashboard/teams/${teamId}?error=move-failed`);
+            return;
+        }
+
+        const result = await apiRequest<unknown>(
+            `/api/teams/registrations/${regId}/reassign`,
+            { method: 'PATCH', token, body: { team_id } }
+        );
+
+        if (!result.success) {
+            console.error('Reassign registration error:', result.error);
+            res.redirect(`/dashboard/teams/${teamId}?error=move-failed`);
+            return;
+        }
+
+        res.redirect(`/dashboard/teams/${teamId}?success=moved`);
     }
 );
 
