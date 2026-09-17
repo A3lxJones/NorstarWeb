@@ -173,6 +173,7 @@
                         </button>
                         {% if otherTeams.length > 0 %}
                         <form action="/dashboard/teams/{{ team.id }}/registrations/{{ reg.id }}/reassign" method="POST"
+                              novalidate
                               class="flex gap-1" data-confirm="Move {{ reg.child.first_name }} to the selected team?">
                           <input type="text" name="website" tabindex="-1" autocomplete="off" class="hidden" />
                           <select name="team_id" class="select select-bordered select-xs" required>

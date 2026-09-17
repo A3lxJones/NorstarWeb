@@ -310,7 +310,7 @@ router.patch(
 /**
  * PATCH /api/teams/registrations/:id/reassign
  * Move a child from their current team to a different team (coach/admin only).
- * Coaches may only move players out of / into teams they coach.
+ * Coaches can move players between any teams.
  * Body: { team_id: string } — the destination team.
  */
 router.patch(
@@ -324,10 +324,10 @@ router.patch(
 
         const targetTeamId = req.body.team_id as string;
 
-        // Fetch the registration being moved, including its current team's coach
+        // Fetch the registration being moved.
         const { data: registration, error: regError } = await supabaseAdmin
             .from("team_registrations")
-            .select("id, team_id, child_id, team:teams!inner(coach_id)")
+            .select("id, team_id, child_id")
             .eq("id", req.params.id)
             .single();
 
@@ -341,28 +341,16 @@ router.patch(
             return;
         }
 
-        // Fetch the destination team so we can check coach ownership
+        // Verify the destination team exists.
         const { data: targetTeam, error: targetTeamError } = await supabaseAdmin
             .from("teams")
-            .select("id, coach_id")
+            .select("id")
             .eq("id", targetTeamId)
             .single();
 
         if (targetTeamError || !targetTeam) {
             res.status(404).json({ success: false, error: "Destination team not found" } as ApiResponse);
             return;
-        }
-
-        // Coaches can only move players between teams they coach
-        if (req.userRole === "coach") {
-            const currentTeamCoachId = (registration.team as unknown as { coach_id: string | null }).coach_id;
-            if (currentTeamCoachId !== req.userId! || targetTeam.coach_id !== req.userId!) {
-                res.status(403).json({
-                    success: false,
-                    error: "You can only move players between teams you coach",
-                } as ApiResponse);
-                return;
-            }
         }
 
         // If the child already has a registration for the destination team,

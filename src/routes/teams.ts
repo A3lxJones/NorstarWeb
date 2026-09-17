@@ -149,7 +149,7 @@ router.get('/:id', async (req: Request, res: Response) => {
                 : req.query.success === 'rejected' ? 'Registration rejected.'
                     : req.query.success === 'moved' ? 'Player moved to the new team.'
                         : null,
-            error: req.query.error === 'move-failed' ? 'Failed to move player. Please try again.' : null,
+            error: typeof req.query.error === 'string' ? req.query.error : null,
         });
     } catch (error) {
         console.error('Team detail error:', error);
@@ -344,7 +344,7 @@ router.post(
         const { team_id } = req.body;
 
         if (!team_id) {
-            res.redirect(`/dashboard/teams/${teamId}?error=move-failed`);
+            res.redirect(`/dashboard/teams/${teamId}?error=${encodeURIComponent('Please select a destination team.')}`);
             return;
         }
 
@@ -355,7 +355,7 @@ router.post(
 
         if (!result.success) {
             console.error('Reassign registration error:', result.error);
-            res.redirect(`/dashboard/teams/${teamId}?error=move-failed`);
+            res.redirect(`/dashboard/teams/${teamId}?error=${encodeURIComponent(result.error || 'Failed to move player.')}`);
             return;
         }
 
