@@ -12,7 +12,6 @@ test.describe('primary navigation', () => {
         const links: { name: RegExp; expectedPath: string }[] = [
             { name: /^news$/i, expectedPath: '/news' },
             { name: /^contact$/i, expectedPath: '/contact' },
-            { name: /^shop$/i, expectedPath: '/shop' },
         ];
 
         for (const link of links) {
@@ -21,6 +20,16 @@ test.describe('primary navigation', () => {
             await page.locator('.navbar-center').getByRole('link', { name: link.name }).click();
             await expect(page).toHaveURL(new RegExp(`${link.expectedPath}$`));
         }
+    });
+
+    test('shop links point to the First Line Hockey Norstar collection', async ({ page }) => {
+        await page.goto('/');
+        const shopUrl = 'https://firstlinehockey.co.uk/collection-norstar-inline-hockey';
+
+        await expect(page.locator('.navbar-center').getByRole('link', { name: /^shop$/i })).toHaveAttribute('href', shopUrl);
+        await expect(page.locator('.navbar-start').getByRole('link', { name: /^shop$/i })).toHaveAttribute('href', shopUrl);
+        await expect(page.getByRole('link', { name: /visit shop/i })).toHaveAttribute('href', shopUrl);
+        await expect(page.getByRole('link', { name: /shop ↗/i })).toHaveAttribute('href', shopUrl);
     });
 
     test('brand logo links back to home', async ({ page }) => {
