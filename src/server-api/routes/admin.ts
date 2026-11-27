@@ -3,6 +3,7 @@ import { supabaseAdmin } from "../config/supabase";
 import { authenticate, authorize } from "../middleware/auth";
 import { decryptDeep, encryptField } from "../utils/encryption";
 import { ApiResponse } from "../types";
+import { isValidUUID } from "../utils/validation";
 
 const router = Router();
 
@@ -475,6 +476,71 @@ router.get("/children/count", async (_req: Request, res: Response): Promise<void
         success: true,
         data: { totalChildren: count || 0 },
     } as ApiResponse);
+});
+
+/**
+ * GET /api/admin/children/:id
+ * Get a child's full details.
+ * Admin only.
+ */
+router.get("/children/:id", async (req: Request, res: Response): Promise<void> => {
+    if (!isValidUUID(req.params.id)) {
+        res.status(400).json({ success: false, error: "Invalid child ID" } as ApiResponse);
+        return;
+    }
+
+    const { data, error } = await supabaseAdmin
+        .from("children")
+        .select("*")
+        .eq("id", req.params.id)
+        .maybeSingle();
+
+    if (error) {
+        res.status(500).json({ success: false, error: error.message } as ApiResponse);
+        return;
+    }
+
+    if (!data) {
+        res.status(404).json({ success: false, error: "Child not found" } as ApiResponse);
+        return;
+    }
+
+    res.json({ success: true, data } as ApiResponse);
+});
+
+/**
+ * DELETE /api/admin/children/:id
+ * Permanently remove a child and all rows that reference the child.
+ * The database's ON DELETE CASCADE foreign keys remove registrations,
+ * availability, availability responses, and child-linked reports in the
+ * same atomic statement.
+ * Admin only.
+ */
+router.delete("/children/:id", async (req: Request, res: Response): Promise<void> => {
+    if (!isValidUUID(req.params.id)) {
+        res.status(400).json({ success: false, error: "Invalid child ID" } as ApiResponse);
+        return;
+    }
+
+    const { data, error } = await supabaseAdmin
+        .from("children")
+        .delete()
+        .eq("id", req.params.id)
+        .select("id")
+        .maybeSingle();
+
+    if (error) {
+        // PostgreSQL rolls back the delete and its cascades together on failure.
+        res.status(500).json({ success: false, error: error.message } as ApiResponse);
+        return;
+    }
+
+    if (!data) {
+        res.status(404).json({ success: false, error: "Child not found" } as ApiResponse);
+        return;
+    }
+
+    res.json({ success: true, message: "Child and related records deleted" } as ApiResponse);
 });
 
 export default router;

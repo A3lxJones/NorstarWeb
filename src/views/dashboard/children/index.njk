@@ -25,6 +25,12 @@
       </div>
     </div>
 
+    {% if deleted %}
+    <div class="alert alert-success mb-6" role="status">
+      <span>Child and related personal records were permanently removed.</span>
+    </div>
+    {% endif %}
+
     {% if error %}
     <div class="alert alert-error mb-6">
       <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -99,7 +105,11 @@
         <tbody>
           {% for child in children %}
           <tr class="hover:bg-base-300/40 transition-colors">
-            <td class="font-medium">{{ child.first_name }} {{ child.last_name }}</td>
+            <td class="font-medium">
+              <a href="/dashboard/children/all/{{ child.id }}" class="link link-hover text-secondary">
+                {{ child.first_name }} {{ child.last_name }}
+              </a>
+            </td>
             <td class="text-base-content/70 text-sm">{{ child.position | capitalize if child.position else '—' }}</td>
             <td class="text-sm">
               {% if child.parent %}
@@ -143,6 +153,8 @@
             Parent: <span class="text-secondary">{{ child.parent.full_name }}</span>
           </p>
           {% endif %}
+
+          <a href="/dashboard/children/all/{{ child.id }}" class="btn btn-ghost btn-sm mt-2">View Details</a>
 
           {% if child.emergency_contact_name %}
           <p class="text-xs text-base-content/50 mt-1">
