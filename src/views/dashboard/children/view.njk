@@ -12,6 +12,12 @@
       {{ backLabel | default('Back') }}
     </a>
 
+    {% if error %}
+    <div class="alert alert-error mb-6" role="alert">
+      <span>{{ error }}</span>
+    </div>
+    {% endif %}
+
     <!-- Header -->
     <div class="mb-8">
       <h1 class="font-heading text-3xl font-bold">
@@ -103,6 +109,27 @@
       </div>
 
     </div>
+
+    {% if realRole === 'admin' %}
+    <div class="card bg-base-200 border border-error/30 shadow-lg mt-6">
+      <div class="card-body">
+        <h2 class="font-heading text-lg font-semibold text-error mb-2">Admin Danger Zone</h2>
+        <p class="text-sm text-base-content/60 mb-4">
+          This permanently removes the child's personal details, registrations, and availability records.
+        </p>
+        <form action="/dashboard/children/all/{{ child.id }}/delete" method="POST" class="inline" novalidate>
+          <input type="text" name="website" tabindex="-1" autocomplete="off" class="hidden" />
+          <button type="submit" class="btn btn-error btn-sm btn-outline gap-1 hover:scale-[1.02] transition-all"
+                  data-confirm="Admin action: permanently remove {{ child.first_name }} and all their personal details and registrations? This cannot be undone.">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            Admin: Permanently Remove Child
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
 
   </div>
 </section>

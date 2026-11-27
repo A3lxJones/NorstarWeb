@@ -82,6 +82,41 @@ app.get('/api/auth/me', (req, res) => {
     res.json({ success: true, data: userForRole(roleFromToken(req)) });
 });
 
+app.get('/api/admin/children/:id', (req, res) => {
+    if (roleFromToken(req) !== 'admin') {
+        res.status(403).json({ success: false, error: 'Admin access required.' });
+        return;
+    }
+
+    res.json({
+        success: true,
+        data: {
+            id: req.params.id,
+            first_name: 'Test',
+            last_name: 'Child',
+            emergency_contact_name: 'Test Contact',
+            emergency_contact_phone: '123456789',
+            emergency_contact_relationship: 'parent',
+            medical_conditions: 'NA',
+            allergies: 'NA',
+        },
+    });
+});
+
+app.delete('/api/admin/children/:id', (req, res) => {
+    if (roleFromToken(req) !== 'admin') {
+        res.status(403).json({ success: false, error: 'Admin access required.' });
+        return;
+    }
+
+    if (req.params.id.endsWith('0001')) {
+        res.status(500).json({ success: false, error: 'Could not delete child.' });
+        return;
+    }
+
+    res.json({ success: true, message: 'Child and related records deleted' });
+});
+
 app.post('/api/auth/forgot-password', (_req, res) => {
     res.json({ success: true, data: { message: 'Reset email sent.' } });
 });

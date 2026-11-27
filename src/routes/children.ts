@@ -60,6 +60,7 @@ router.get('/all', requireRole('admin'), async (req: Request, res: Response) => 
             title: 'Registered Children — Norstar',
             children: Array.isArray(children) ? children : [],
             search,
+            deleted: req.query.deleted === '1',
         });
     } catch (error) {
         console.error('Admin children list error:', error);
@@ -94,6 +95,7 @@ router.get('/all/:id', requireRole('admin'), async (req: Request, res: Response)
             child: result.data,
             backUrl: '/dashboard/children/all',
             backLabel: 'Back to Children',
+            error: typeof req.query.error === 'string' ? req.query.error : null,
         });
     } catch (error) {
         console.error('Admin child detail error:', error);
@@ -465,7 +467,32 @@ router.post('/:id/edit', async (req: Request, res: Response) => {
     res.redirect(`/dashboard/children/${childId}`);
 });
 
-// ─── POST /dashboard/children/:id/delete — remove child ─────
+// ─── POST /dashboard/children/all/:id/delete — admin removal ─
+
+router.post('/all/:id/delete', requireRole('admin'), async (req: Request, res: Response) => {
+    const token = req.session.accessToken!;
+    const childId = req.params.id;
+
+    // Honeypot check
+    if (req.body.website) {
+        res.redirect('/dashboard/children/all');
+        return;
+    }
+
+    const result = await apiRequest(`/api/admin/children/${childId}`, {
+        method: 'DELETE',
+        token,
+    });
+
+    if (!result.success) {
+        res.redirect(`/dashboard/children/all/${childId}?error=${encodeURIComponent(result.error || 'Failed to remove child.')}`);
+        return;
+    }
+
+    res.redirect('/dashboard/children/all?deleted=1');
+});
+
+// ─── POST /dashboard/children/:id/delete — parent removal ────
 
 router.post('/:id/delete', async (req: Request, res: Response) => {
     const token = req.session.accessToken!;

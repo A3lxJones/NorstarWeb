@@ -78,6 +78,56 @@ test.describe('authenticated pages', () => {
     });
 });
 
+test.describe('admin child removal', () => {
+    const childId = '123e4567-e89b-42d3-a456-426614174000';
+
+    test('admin can permanently remove a child from the detail page', async ({ page }) => {
+        await loginAs(page, 'admin');
+        await page.goto(`/dashboard/children/all/${childId}`);
+
+        const removeButton = page.getByRole('button', { name: /admin: permanently remove child/i });
+        await expect(removeButton).toBeVisible();
+        page.once('dialog', (dialog) => dialog.accept());
+        await removeButton.click();
+
+        await expect(page).toHaveURL(/\/dashboard\/children\/all\?deleted=1$/);
+        await expect(page.getByRole('status')).toContainText(/permanently removed/i);
+    });
+
+    test('non-admin users cannot submit the admin removal route', async ({ page }) => {
+        await loginAs(page, 'parent');
+        const response = await page.request.post(
+            `/dashboard/children/all/${childId}/delete`,
+            { form: { website: '' } }
+        );
+
+        expect(response.status()).toBe(403);
+    });
+
+    test('admin sees a failure message when permanent removal fails', async ({ page }) => {
+        await loginAs(page, 'admin');
+        await page.goto(`/dashboard/children/all/${childId.replace(/4000$/, '0001')}`);
+
+        page.once('dialog', (dialog) => dialog.accept());
+        await page.getByRole('button', { name: /admin: permanently remove child/i }).click();
+
+        await expect(page).toHaveURL(/error=Could%20not%20delete%20child\./);
+        await expect(
+            page.getByRole('alert').filter({ hasText: 'Could not delete child.' })
+        ).toBeVisible();
+    });
+
+    test('parent retains the existing child removal action, without the admin action', async ({ page }) => {
+        await loginAs(page, 'parent');
+        await page.goto(`/dashboard/children/${childId}`);
+
+        await expect(page.getByRole('button', { name: 'Remove Child' })).toBeVisible();
+        await expect(
+            page.getByRole('button', { name: /admin: permanently remove child/i })
+        ).toHaveCount(0);
+    });
+});
+
 test.describe('logout', () => {
     test('logging out clears the session and re-locks protected routes', async ({ page }) => {
         await loginAs(page, 'parent');
